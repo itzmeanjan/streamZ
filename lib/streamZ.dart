@@ -1,4 +1,5 @@
 import 'dart:convert' show jsonEncode;
+import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 
@@ -114,7 +115,7 @@ _handleOtherRequest(HttpRequest httpRequest) {
  */
 createServer(InternetAddress host,
         {int port = 8000, String serverName = 'streamZ_v1.0.0'}) =>
-    HttpServer.bind(host, port).then(
+    HttpServer.bind(host, port, shared: true).then(
       (httpServer) {
         httpServer.serverHeader = serverName;
         print('[+]${serverName} listening ...\n');
