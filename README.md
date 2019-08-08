@@ -1,4 +1,5 @@
-A sample command-line application.
+# streamZ
+A simple video streaming application made with Dart, JS, HTML & CSS
 
-Created from templates made available by Stagehand under a BSD-style
-[license](https://github.com/dart-lang/stagehand/blob/master/LICENSE).
+## documentation
+Coming soon ...
