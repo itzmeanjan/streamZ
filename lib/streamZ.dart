@@ -1,5 +1,4 @@
 import 'dart:convert' show jsonEncode;
-import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 
