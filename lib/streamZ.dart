@@ -1,19 +1,8 @@
-import 'dart:convert' show jsonEncode;
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:path/path.dart' as path;
 import 'dart:io';
-
-/*
-  Returns a Map<String, String> holding available movie(s)/ video(s),
-  by reading a symbolic link present in current working directory, which
-  points to `~/Videos` in *nix systems.
-  
-  Key of Map will be basename of absolute path i.e. filename
-  & value will be corresponding file's absolute path
- */
-Map<String, String> _getPlayList(String targetPath) =>
-    Map.fromEntries(Directory(Directory(targetPath).resolveSymbolicLinksSync())
-        .listSync()
-        .map((elem) => MapEntry(path.basename(elem.path), elem.path)));
 
 /*
   Handling a GET request is done here, with the help of switch statements,
@@ -32,6 +21,30 @@ _handleGETRequest(HttpRequest httpRequest) {
      */
     serveFile(String filePath) =>
         httpRequest.response.addStream(File(filePath).openRead());
+
+    /*
+      This function checks whether a requested movie can be streamed or not,
+      for that we need to check whether target file is present or not.
+
+      If it's present we'll create a stream of requested range from that file,
+      and send that to client.
+
+      Remember at a time we can send at max 1MB ( 1024*1024 ) data, if requested data is larger than that,
+      we'll send only 1MB else requested amount to be sent
+    */
+    Future<String> isRequestedMoviePresent(
+        String movieName, String targetPath) {
+      Completer<String> completer = Completer<String>();
+      File(targetPath)
+          .openRead()
+          .transform(utf8.decoder)
+          .transform(json.decoder)
+          .listen((content) {
+        var tmp = Map<String, String>.from(content);
+        completer.complete(tmp.containsKey(movieName) ? tmp[movieName] : '');
+      });
+      return completer.future;
+    }
 
     switch (httpRequest.requestedUri.path) {
       case '/':
@@ -59,11 +72,46 @@ _handleGETRequest(HttpRequest httpRequest) {
         httpRequest.response
           ..statusCode = HttpStatus.ok
           ..headers.contentType = ContentType.json;
-        httpRequest.response
-            .write(jsonEncode(_getPlayList(path.join(path.current, 'videos'))));
+        await serveFile(
+            path.normalize(path.join(path.current, '../data/playList.json')));
         break;
       default:
-        httpRequest.response.statusCode = HttpStatus.notFound;
+        if (httpRequest.requestedUri.path.substring(1).endsWith('mp4')) {
+          await isRequestedMoviePresent(
+                  httpRequest.requestedUri.path.substring(1),
+                  path.normalize(
+                      path.join(path.current, '../data/playList.json')))
+              .then(
+            (String targetMoviePath) async {
+              if (targetMoviePath.isNotEmpty) {
+                var range = httpRequest.headers.value('Range');
+                List<String> splitRange =
+                    range.replaceFirst('bytes=', '').split('-');
+                int init = int.parse(splitRange[0], radix: 10);
+                int end = splitRange[1].isEmpty
+                    ? (init + 1024 * 1024)
+                    : (int.parse(splitRange[1], radix: 10) - init > 1024 * 1024)
+                        ? (init + 1024 * 1024)
+                        : int.parse(splitRange[1], radix: 10);
+                httpRequest.response
+                  ..statusCode = HttpStatus.partialContent
+                  ..headers.contentType = ContentType.parse('video/mp4')
+                  ..headers.set('Content-Range',
+                      'bytes $init-$end/${File(targetMoviePath).lengthSync()}')
+                  ..headers.set('Accept-Ranges', 'bytes')
+                  ..headers.set('Content-Length', end - init + 1);
+                await httpRequest.response
+                    .addStream(File(targetMoviePath).openRead(init, end + 1));
+              } else {
+                httpRequest.response.statusCode = HttpStatus.notFound;
+              }
+            },
+            onError: (e) =>
+                httpRequest.response.statusCode = HttpStatus.notFound,
+          );
+        } else {
+          httpRequest.response.statusCode = HttpStatus.notFound;
+        }
     }
     // closing connection
     await httpRequest.response.close();
