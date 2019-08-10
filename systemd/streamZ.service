@@ -1,0 +1,11 @@
+[Unit]
+Description=A streaming service written in Dart, JS, HTML & CSS, with <3
+
+[Service]
+User=itzmeanjan
+WorkingDirectory=/absolute-path-to-top-level/bin/directory-under-project-hierarchy
+ExecStart=/absolute-path-to/dartaotruntime /absolute-path-to/main.dart.aot 2
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

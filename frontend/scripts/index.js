@@ -21,24 +21,31 @@ window.addEventListener('DOMContentLoaded', (ev) => {
 
   function setLightsUpForShow(event) {
     window.navigator.vibrate(200);
-    let movieName = event.target.childNodes[0].childNodes[0].innerHTML;
+    let movieName =
+        event.target.className === 'playListText'
+            ? event.target.innerHTML
+            : event.target.className === 'childDiv'
+                  ? event.target.childNodes[0].childNodes[0].innerHTML
+                  : null;
+    if (movieName === null) {
+      return;
+    }
     while (parentDiv.childElementCount > 0) {
       parentDiv.removeChild(document.getElementById('mainDiv').firstChild);
     }
     let childDiv = document.createElement('div');
     childDiv.className = 'childDiv';
-    childDiv.style.backgroundColor = 'white';
-    childDiv.style.width = `${window.innerWidth - 50}px`;
-    childDiv.style.marginTop = '2vmax';
+    childDiv.style.backgroundColor = '#363636';
+    childDiv.style.width = '95%';
     let videoText = document.createElement('p');
-    videoText.style.color = 'black';
+    videoText.style.color = 'snow';
     videoText.style.marginLeft = '1vmax';
     videoText.style.marginBottom = '0';
     videoText.style.paddingBottom = '0';
     videoText.style.fontFamily = "Georgia, 'Times New Roman', Times, serif";
     videoText.style.fontWeight = 'bold';
     videoText.style.fontSize = '2vmax';
-    videoText.innerHTML = movieName;
+    videoText.innerHTML = movieName.split('.').join(' ');
     let video = document.createElement('video');
     video.style.width = '100%';
     video.style.outline = 'none';
