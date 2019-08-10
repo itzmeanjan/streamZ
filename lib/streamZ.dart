@@ -79,8 +79,8 @@ _handleGETRequest(HttpRequest httpRequest) {
         httpRequest.response
           ..statusCode = HttpStatus.ok
           ..headers.contentType = ContentType.parse('image/x-icon');
-        await serveFile(
-            path.normalize(path.join(path.current, '../frontend/images/favicon.ico')));
+        await serveFile(path.normalize(
+            path.join(path.current, '../frontend/images/favicon.ico')));
         break;
       default:
         if (httpRequest.requestedUri.path.substring(1).endsWith('mp4')) {
@@ -94,21 +94,31 @@ _handleGETRequest(HttpRequest httpRequest) {
                 var range = httpRequest.headers.value('Range');
                 List<String> splitRange =
                     range.replaceFirst('bytes=', '').split('-');
-                int init = int.parse(splitRange[0], radix: 10);
-                int end = splitRange[1].isEmpty
-                    ? (init + 1024 * 1024)
-                    : (int.parse(splitRange[1], radix: 10) - init > 1024 * 1024)
+                int total = File(targetMoviePath)
+                    .lengthSync(); // total # of bytes present in our target file
+                int init = int.parse(splitRange[0],
+                    radix:
+                        10); // initial position requested by client ( it'll always be present in request headers )
+                int end = splitRange[1]
+                        .isEmpty // if nothing is requested as max offset, we'll simply send next 1MB data, until & unless it crosses total size of file
+                    ? (init + 1024 * 1024) >= total
+                        ? total - 1
+                        : (init + 1024 * 1024)
+                    : (int.parse(splitRange[1], radix: 10) - init >
+                            1024 *
+                                1024) // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
                         ? (init + 1024 * 1024)
                         : int.parse(splitRange[1], radix: 10);
                 httpRequest.response
                   ..statusCode = HttpStatus.partialContent
                   ..headers.contentType = ContentType.parse('video/mp4')
-                  ..headers.set('Content-Range',
-                      'bytes $init-$end/${File(targetMoviePath).lengthSync()}')
+                  ..headers.set('Content-Range', 'bytes $init-$end/$total}')
                   ..headers.set('Accept-Ranges', 'bytes')
                   ..headers.set('Content-Length', end - init + 1);
-                await httpRequest.response
-                    .addStream(File(targetMoviePath).openRead(init, end + 1));
+                await httpRequest.response.addStream(File(targetMoviePath).openRead(
+                    init,
+                    end +
+                        1)); // end+1 as max offset, cause we'll read up to `end` not (end + 1)
               } else {
                 httpRequest.response.statusCode = HttpStatus.notFound;
               }
