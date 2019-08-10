@@ -75,6 +75,13 @@ _handleGETRequest(HttpRequest httpRequest) {
         await serveFile(
             path.normalize(path.join(path.current, '../data/playList.json')));
         break;
+      case '/favicon.ico':
+        httpRequest.response
+          ..statusCode = HttpStatus.ok
+          ..headers.contentType = ContentType.parse('image/x-icon');
+        await serveFile(
+            path.normalize(path.join(path.current, '../frontend/images/favicon.ico')));
+        break;
       default:
         if (httpRequest.requestedUri.path.substring(1).endsWith('mp4')) {
           await isRequestedMoviePresent(
