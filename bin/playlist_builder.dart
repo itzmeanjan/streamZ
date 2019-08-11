@@ -4,12 +4,16 @@ import 'package:path/path.dart' show join, basename;
 
 main() {
   String target_file = '../data/playList.json';
-  Map<String, String> playList = {};
+  Map<String, Map<String, dynamic>> playList = {};
   Directory(join(Platform.environment['HOME'], 'Videos')).list().listen(
     (movie) {
-      if (movie.path.endsWith('mp4')) {
-        playList
-            .addAll({basename(movie.path).split(' ').join('.'): movie.path});
+      if (movie.path.endsWith('webm') || movie.path.endsWith('mp4')) {
+        playList.addAll({
+          basename(movie.path).split(' ').join('.'): {
+            'path': movie.path,
+            'length': File(movie.path).lengthSync(),
+          }
+        });
       }
     },
     onDone: () {

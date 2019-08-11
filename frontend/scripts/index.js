@@ -22,11 +22,11 @@ window.addEventListener('DOMContentLoaded', (ev) => {
   function setLightsUpForShow(event) {
     window.navigator.vibrate(200);
     let movieName =
-        event.target.className === 'playListText'
-            ? event.target.innerHTML
-            : event.target.className === 'childDiv'
-                  ? event.target.childNodes[0].childNodes[0].innerHTML
-                  : null;
+      event.target.className === 'playListText'
+        ? event.target.innerHTML
+        : event.target.className === 'childDiv'
+          ? event.target.childNodes[0].childNodes[0].innerHTML
+          : null;
     if (movieName === null) {
       return;
     }
@@ -47,14 +47,26 @@ window.addEventListener('DOMContentLoaded', (ev) => {
     videoText.style.fontSize = '2vmax';
     videoText.innerHTML = movieName.split('.').join(' ');
     let video = document.createElement('video');
-    video.style.width = '100%';
-    video.style.outline = 'none';
+    video.id = "video";
+    video.onclick = (ev) => {
+      let videoElement = document.getElementById("video");
+      if (videoElement.paused) {
+        videoElement.play();
+      }
+      else {
+        videoElement.pause();
+      }
+    };
+    video.style.width = "100%";
+    video.style.outline = "none";
     video.width = window.innerWidth - 20;
     video.height = (video.width * 9) / 16;
     video.controls = true;
-    let source = document.createElement('source');
+    video.preload = "metadata";
+    let source = document.createElement("source");
     source.src = movieName;
     source.type = `video/${movieName.split('.').slice(-1)[0]}`;
+    video.innerHTML = "Something went wrong !!!";
     video.appendChild(source);
     childDiv.appendChild(videoText);
     childDiv.appendChild(video);

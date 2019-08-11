@@ -25,6 +25,9 @@ _handleGETRequest(HttpRequest httpRequest) {
     /*
       This function checks whether a requested movie can be streamed or not,
       for that we need to check whether target file is present or not.
+      
+      Returns a Map<String, dynamic>, holding absolute path of target file & 
+      content length in bytes
 
       If it's present we'll create a stream of requested range from that file,
       and send that to client.
@@ -32,16 +35,19 @@ _handleGETRequest(HttpRequest httpRequest) {
       Remember at a time we can send at max 1MB ( 1024*1024 ) data, if requested data is larger than that,
       we'll send only 1MB else requested amount to be sent
     */
-    Future<String> isRequestedMoviePresent(
+    Future<Map<String, dynamic>> isRequestedMoviePresent(
         String movieName, String targetPath) {
-      Completer<String> completer = Completer<String>();
+      Completer<Map<String, dynamic>> completer =
+          Completer<Map<String, dynamic>>();
       File(targetPath)
           .openRead()
           .transform(utf8.decoder)
           .transform(json.decoder)
           .listen((content) {
-        var tmp = Map<String, String>.from(content);
-        completer.complete(tmp.containsKey(movieName) ? tmp[movieName] : '');
+        var tmp = Map<String, dynamic>.from(content).map(
+          (key, val) => MapEntry(key, Map<String, dynamic>.from(val)),
+        );
+        completer.complete(tmp.containsKey(movieName) ? tmp[movieName] : {});
       });
       return completer.future;
     }
@@ -83,19 +89,20 @@ _handleGETRequest(HttpRequest httpRequest) {
             path.join(path.current, '../frontend/images/favicon.ico')));
         break;
       default:
-        if (httpRequest.requestedUri.path.substring(1).endsWith('mp4')) {
+        if (httpRequest.requestedUri.path.substring(1).endsWith('webm') ||
+            httpRequest.requestedUri.path.substring(1).endsWith('mp4')) {
           await isRequestedMoviePresent(
                   httpRequest.requestedUri.path.substring(1),
                   path.normalize(
                       path.join(path.current, '../data/playList.json')))
               .then(
-            (String targetMoviePath) async {
-              if (targetMoviePath.isNotEmpty) {
+            (Map<String, dynamic> targetMovieStat) async {
+              if (targetMovieStat.isNotEmpty) {
                 var range = httpRequest.headers.value('Range');
                 List<String> splitRange =
                     range.replaceFirst('bytes=', '').split('-');
-                int total = File(targetMoviePath)
-                    .lengthSync(); // total # of bytes present in our target file
+                int total = (targetMovieStat['length'] as int);
+                // total # of bytes present in our target file
                 int init = int.parse(splitRange[0],
                     radix:
                         10); // initial position requested by client ( it'll always be present in request headers )
@@ -103,22 +110,22 @@ _handleGETRequest(HttpRequest httpRequest) {
                         .isEmpty // if nothing is requested as max offset, we'll simply send next 1MB data, until & unless it crosses total size of file
                     ? (init + 1024 * 1024) >= total
                         ? total - 1
-                        : (init + 1024 * 1024)
-                    : (int.parse(splitRange[1], radix: 10) - init >
-                            1024 *
-                                1024) // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
-                        ? (init + 1024 * 1024)
-                        : int.parse(splitRange[1], radix: 10);
+                        : init + 1024 * 1024
+                    : int.parse(splitRange[1],
+                        radix:
+                            10); // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
                 httpRequest.response
                   ..statusCode = HttpStatus.partialContent
-                  ..headers.contentType = ContentType.parse('video/mp4')
-                  ..headers.set('Content-Range', 'bytes $init-$end/$total}')
+                  ..headers.contentType = ContentType.parse(
+                      'video/${targetMovieStat['path'].split('.').last}')
                   ..headers.set('Accept-Ranges', 'bytes')
+                  ..headers.set('Content-Range',
+                      'bytes $init-$end/${targetMovieStat['length'] as int}')
                   ..headers.set('Content-Length', end - init + 1);
-                await httpRequest.response.addStream(File(targetMoviePath).openRead(
-                    init,
-                    end +
-                        1)); // end+1 as max offset, cause we'll read up to `end` not (end + 1)
+                await File(targetMovieStat['path'])
+                    .openRead(init, end + 1)
+                    .pipe(httpRequest
+                        .response); // end+1 as max offset, cause we'll read up to byte index `end` not (end + 1)
               } else {
                 httpRequest.response.statusCode = HttpStatus.notFound;
               }
