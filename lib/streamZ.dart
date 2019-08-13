@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-
+import 'dart:isolate' show Isolate;
 import 'package:path/path.dart' as path;
 import 'dart:io';
 
@@ -99,33 +99,45 @@ _handleGETRequest(HttpRequest httpRequest) {
             (Map<String, dynamic> targetMovieStat) async {
               if (targetMovieStat.isNotEmpty) {
                 var range = httpRequest.headers.value('Range');
-                List<String> splitRange =
-                    range.replaceFirst('bytes=', '').split('-');
-                int total = (targetMovieStat['length'] as int);
-                // total # of bytes present in our target file
-                int init = int.parse(splitRange[0],
-                    radix:
-                        10); // initial position requested by client ( it'll always be present in request headers )
-                int end = splitRange[1]
-                        .isEmpty // if nothing is requested as max offset, we'll simply send next 1MB data, until & unless it crosses total size of file
-                    ? (init + 1024 * 1024) >= total
-                        ? total - 1
-                        : init + 1024 * 1024
-                    : int.parse(splitRange[1],
-                        radix:
-                            10); // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
-                httpRequest.response
-                  ..statusCode = HttpStatus.partialContent
-                  ..headers.contentType = ContentType.parse(
-                      'video/${targetMovieStat['path'].split('.').last}')
-                  ..headers.set('Accept-Ranges', 'bytes')
-                  ..headers.set('Content-Range',
-                      'bytes $init-$end/${targetMovieStat['length'] as int}')
-                  ..headers.set('Content-Length', end - init + 1);
-                await File(targetMovieStat['path'])
-                    .openRead(init, end + 1)
-                    .pipe(httpRequest
-                        .response); // end+1 as max offset, cause we'll read up to byte index `end` not (end + 1)
+                if (range == null) {
+                  httpRequest.response
+                    ..statusCode = HttpStatus.ok
+                    ..headers.contentType = ContentType.parse(
+                        'video/${targetMovieStat['path'].split('.').last}')
+                    ..headers.set('Content-Disposition',
+                        'attachment; filename="${path.basename(targetMovieStat['path'])}"')
+                    ..headers.contentLength = targetMovieStat['length'] as int;
+                  await File(targetMovieStat['path']).openRead().pipe(httpRequest
+                      .response); // if client is requesting a download of content, whole file to be sent to remote
+                } else {
+                  List<String> splitRange =
+                      range.replaceFirst('bytes=', '').split('-');
+                  int total = (targetMovieStat['length'] as int);
+                  // total # of bytes present in our target file
+                  int init = int.parse(splitRange[0],
+                      radix:
+                          10); // initial position requested by client ( it'll always be present in request headers )
+                  int end = splitRange[1]
+                          .isEmpty // if nothing is requested as max offset, we'll simply send next 1MB data, until & unless it crosses total size of file
+                      ? (init + 1024 * 1024) >= total
+                          ? total - 1
+                          : init + 1024 * 1024
+                      : int.parse(splitRange[1],
+                          radix:
+                              10); // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
+                  httpRequest.response
+                    ..statusCode = HttpStatus.partialContent
+                    ..headers.contentType = ContentType.parse(
+                        'video/${targetMovieStat['path'].split('.').last}')
+                    ..headers.set('Accept-Ranges', 'bytes')
+                    ..headers.set('Content-Range',
+                        'bytes $init-$end/${targetMovieStat['length'] as int}')
+                    ..headers.set('Content-Length', end - init + 1);
+                  await File(targetMovieStat['path'])
+                      .openRead(init, end + 1)
+                      .pipe(httpRequest
+                          .response); // end+1 as max offset, cause we'll read up to byte index `end` not (end + 1)
+                }
               } else {
                 httpRequest.response.statusCode = HttpStatus.notFound;
               }
@@ -143,7 +155,7 @@ _handleGETRequest(HttpRequest httpRequest) {
 
   // for simple logging purpose
   print(
-      '${httpRequest.method}\t${httpRequest.requestedUri.path}\t${httpRequest.connectionInfo.remoteAddress.address}\t${DateTime.now().toString()}');
+      '${httpRequest.method}\t${httpRequest.requestedUri.path}\t${httpRequest.connectionInfo.remoteAddress.address}\t${DateTime.now().toString()}\t${Isolate.current.debugName}');
   // we'll not consider any content of request body, but rather write some meaningful response depending upon requestedURI
   httpRequest.drain().then(
         (val) => getMethodResponseWriter(),
@@ -189,7 +201,8 @@ createServer(InternetAddress host,
     HttpServer.bind(host, port, shared: true).then(
       (httpServer) {
         httpServer.serverHeader = serverName;
-        print('[+]${serverName} listening ...\n');
+        print(
+            '[+]${serverName} listening ( ${Isolate.current.debugName} ) ...\n');
         httpServer.listen(
           (httpRequest) {
             switch (httpRequest.method) {

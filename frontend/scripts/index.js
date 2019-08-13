@@ -30,6 +30,10 @@ window.addEventListener('DOMContentLoaded', (ev) => {
     if (movieName === null) {
       return;
     }
+    if (!confirm("Stream this movie ?")) {
+      window.location = movieName;
+      return;
+    }
     while (parentDiv.childElementCount > 0) {
       parentDiv.removeChild(document.getElementById('mainDiv').firstChild);
     }
@@ -45,7 +49,7 @@ window.addEventListener('DOMContentLoaded', (ev) => {
     videoText.style.fontFamily = "Georgia, 'Times New Roman', Times, serif";
     videoText.style.fontWeight = 'bold';
     videoText.style.fontSize = '2vmax';
-    videoText.innerHTML = movieName.split('.').join(' ');
+    videoText.innerHTML = movieName.split('.').slice(0, -1).join(' ');
     let video = document.createElement('video');
     video.id = "video";
     video.onclick = (ev) => {
