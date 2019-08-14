@@ -7,7 +7,7 @@ main() {
   Map<String, Map<String, dynamic>> playList = {};
   Directory(join(Platform.environment['HOME'], 'Videos')).list().listen(
     (movie) {
-      if (movie.path.endsWith('webm') || movie.path.endsWith('mp4')) {
+      if (movie.path.endsWith('mp4')) {
         playList.addAll({
           basename(movie.path).split(' ').join('.'): {
             'path': movie.path,
