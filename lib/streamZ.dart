@@ -116,7 +116,10 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
                           targetMovieStat['length'] as int;
                     await File(targetMovieStat['path']).openRead().pipe(httpRequest
                         .response); // if client is requesting a download of content, whole file to be sent to remote
+                    await httpRequest.response.close(); // closing connection
                   } else {
+                    String remoteAddress =
+                        httpRequest.connectionInfo.remoteAddress.address;
                     List<String> splitRange =
                         range.replaceFirst('bytes=', '').split('-');
                     int total = (targetMovieStat['length'] as int);
@@ -151,8 +154,7 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
                           (val) {
                             stopWatch.stop();
                             sendPorts[1].send({
-                              httpRequest.connectionInfo.remoteAddress.address:
-                                  {
+                              remoteAddress: {
                                 'data': end - init + 1,
                                 'time': stopWatch.elapsed.inMilliseconds,
                               },
@@ -162,8 +164,7 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
                           onError: (e) {
                             stopWatch.stop();
                             sendPorts[1].send({
-                              httpRequest.connectionInfo.remoteAddress.address:
-                                  {
+                              remoteAddress: {
                                 'data': 1024 * 512,
                                 'time': stopWatch.elapsed.inMilliseconds,
                               },
