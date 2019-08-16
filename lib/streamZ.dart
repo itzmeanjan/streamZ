@@ -5,53 +5,29 @@ import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 
+import 'package:streamZ/movies.dart';
+
 /*
   Handling a GET request is done here, with the help of switch statements,
   so that each supported path can be handled properly
   
   Other requestedURI(s) are to discarded, while sending HttpStatus `notFound`
- */
-_handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
+*/
+_handleGETRequest(
+    HttpRequest httpRequest, List<SendPort> sendPorts, List<Movie> movies) {
   /*
     a closure, basically used for writing response of a legit & supported GET request
    */
   Future<void> getMethodResponseWriter() async {
     /*
       a closure, which writes content of a certain file, whose path is provided,
-      to response sink
+      to response sink & on completion closes http connection
      */
     serveFile(String filePath) =>
-        httpRequest.response.addStream(File(filePath).openRead());
-
-    /*
-      This function checks whether a requested movie can be streamed or not,
-      for that we need to check whether target file is present or not.
-      
-      Returns a Map<String, dynamic>, holding absolute path of target file & 
-      content length in bytes
-
-      If it's present we'll create a stream of requested range from that file,
-      and send that to client.
-
-      Remember at a time we can send at max 1MB ( 1024*1024 ) data, if requested data is larger than that,
-      we'll send only 1MB else requested amount to be sent
-    */
-    Future<Map<String, dynamic>> isRequestedMoviePresent(
-        String movieName, String targetPath) {
-      Completer<Map<String, dynamic>> completer =
-          Completer<Map<String, dynamic>>();
-      File(targetPath)
-          .openRead()
-          .transform(utf8.decoder)
-          .transform(json.decoder)
-          .listen((content) {
-        var tmp = Map<String, dynamic>.from(content).map(
-          (key, val) => MapEntry(key, Map<String, dynamic>.from(val)),
-        );
-        completer.complete(tmp.containsKey(movieName) ? tmp[movieName] : {});
-      });
-      return completer.future;
-    }
+        httpRequest.response.addStream(File(filePath).openRead()).then(
+              (val) async => await httpRequest.response.close(),
+              onError: (e) async => await httpRequest.response.close(),
+            );
 
     try {
       switch (httpRequest.requestedUri.path) {
@@ -61,7 +37,6 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
             ..headers.contentType = ContentType.html;
           await serveFile(path.normalize(
               path.join(path.current, '../frontend/pages/index.html')));
-          await httpRequest.response.close(); // closing connection
           break;
         case '/index.js':
           httpRequest.response
@@ -69,7 +44,6 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
             ..headers.contentType = ContentType.parse('text/javascript');
           await serveFile(path.normalize(
               path.join(path.current, '../frontend/scripts/index.js')));
-          await httpRequest.response.close(); // closing connection
           break;
         case '/index.css':
           httpRequest.response
@@ -77,15 +51,15 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
             ..headers.contentType = ContentType.parse('text/css');
           await serveFile(path.normalize(
               path.join(path.current, '../frontend/styles/index.css')));
-          await httpRequest.response.close(); // closing connection
           break;
         case '/movies':
           httpRequest.response
             ..statusCode = HttpStatus.ok
-            ..headers.contentType = ContentType.json;
-          await serveFile(
-              path.normalize(path.join(path.current, '../data/playList.json')));
-          await httpRequest.response.close(); // closing connection
+            ..headers.contentType = ContentType.json
+            ..write(jsonEncode({
+              'path': movies.map((elem) => elem.id).toList(growable: false)
+            }));
+          await httpRequest.response.close();
           break;
         case '/favicon.ico':
           httpRequest.response
@@ -93,108 +67,102 @@ _handleGETRequest(HttpRequest httpRequest, List<SendPort> sendPorts) {
             ..headers.contentType = ContentType.parse('image/x-icon');
           await serveFile(path.normalize(
               path.join(path.current, '../frontend/images/favicon.ico')));
-          await httpRequest.response.close(); // closing connection
           break;
         default:
-          if (httpRequest.requestedUri.path.substring(1).endsWith('mp4')) {
-            await isRequestedMoviePresent(
-                    httpRequest.requestedUri.path.substring(1),
-                    path.normalize(
-                        path.join(path.current, '../data/playList.json')))
-                .then(
-              (Map<String, dynamic> targetMovieStat) async {
-                if (targetMovieStat.isNotEmpty) {
-                  var range = httpRequest.headers.value('Range');
-                  if (range == null) {
-                    httpRequest.response
-                      ..statusCode = HttpStatus.ok
-                      ..headers.contentType = ContentType.parse(
-                          'video/${targetMovieStat['path'].split('.').last}')
-                      ..headers.set('Content-Disposition',
-                          'attachment; filename="${path.basename(targetMovieStat['path'])}"')
-                      ..headers.contentLength =
-                          targetMovieStat['length'] as int;
-                    await File(targetMovieStat['path']).openRead().pipe(httpRequest
-                        .response); // if client is requesting a download of content, whole file to be sent to remote
-                    await httpRequest.response.close(); // closing connection
-                  } else {
-                    String remoteAddress =
-                        httpRequest.connectionInfo.remoteAddress.address;
-                    List<String> splitRange =
-                        range.replaceFirst('bytes=', '').split('-');
-                    int total = (targetMovieStat['length'] as int);
-                    // total # of bytes present in our target file
-                    int init = int.parse(splitRange[0],
-                        radix:
-                            10); // initial position requested by client ( it'll always be present in request headers )
-                    ReceivePort receivePort = ReceivePort();
-                    receivePort.listen(
-                      (val) async {
-                        int end = splitRange[1]
-                                .isEmpty // if nothing is requested as max offset, we'll simply send next 1MB data, until & unless it crosses total size of file
-                            ? (init + val as int) >= total
-                                ? total - 1
-                                : init + val as int
-                            : int.parse(splitRange[1],
-                                radix:
-                                    10); // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
-                        httpRequest.response
-                          ..statusCode = HttpStatus.partialContent
-                          ..headers.contentType = ContentType.parse(
-                              'video/${targetMovieStat['path'].split('.').last}')
-                          ..headers.set('Accept-Ranges', 'bytes')
-                          ..headers
-                              .set('Content-Range', 'bytes $init-$end/$total}')
-                          ..headers.set('Content-Length', end - init + 1);
-                        var stopWatch = Stopwatch()..start();
-                        await File(targetMovieStat['path'])
-                            .openRead(init, end + 1)
-                            .pipe(httpRequest.response)
-                            .then(
-                          (val) {
-                            stopWatch.stop();
-                            sendPorts[1].send({
-                              remoteAddress: {
-                                'data': end - init + 1,
-                                'time': stopWatch.elapsed.inMilliseconds,
-                              },
-                            });
-                            receivePort.close();
-                          },
-                          onError: (e) {
-                            stopWatch.stop();
-                            sendPorts[1].send({
-                              remoteAddress: {
-                                'data': 1024 * 512,
-                                'time': stopWatch.elapsed.inMilliseconds,
-                              },
-                            });
-                            receivePort.close();
-                          },
-                        ); // end+1 as max offset, cause we'll read up to byte index `end` not (end + 1)
-                      },
-                      onDone: () async => await httpRequest.response.close(),
-                      onError: (e) async => await httpRequest.response.close(),
-                      cancelOnError: true,
-                    );
-                    sendPorts[0].send([
-                      receivePort.sendPort,
-                      httpRequest.connectionInfo.remoteAddress.address,
-                    ]);
-                  }
-                } else {
-                  httpRequest.response.statusCode = HttpStatus.notFound;
-                  await httpRequest.response.close(); // closing connection
-                }
-              },
-              onError: (e) async {
-                httpRequest.response.statusCode = HttpStatus.notFound;
-                await httpRequest.response.close(); // closing connection
-              },
-            );
-          } else {
+          String requestedMovie = httpRequest.requestedUri.path.substring(1);
+          int foundElementIndex = movies.indexWhere((elem) =>
+              elem.id ==
+              requestedMovie); // trying to find out whether requested movie can be streamed or not
+          if (foundElementIndex == -1) {
+            // not it can't be streamed, cause we don't have it
             httpRequest.response.statusCode = HttpStatus.notFound;
             await httpRequest.response.close(); // closing connection
+          } else {
+            // well we're trying to stream it
+            var range = httpRequest.headers.value('Range');
+            if (range == null) {
+              // user just requested a download, starting a download
+              httpRequest.response
+                ..statusCode = HttpStatus.ok
+                ..headers.contentType = ContentType.parse(
+                    'video/${movies[foundElementIndex].id.split('.').last}')
+                ..headers.set('Content-Disposition',
+                    'attachment; filename="${path.basename(movies[foundElementIndex].path)}"')
+                ..headers.contentLength = movies[foundElementIndex].size;
+              await serveFile(movies[foundElementIndex].path);
+            } else {
+              // trying to stream movie
+              httpRequest.response
+                ..statusCode = HttpStatus.partialContent
+                ..headers.contentType = ContentType.parse(
+                    'video/${movies[foundElementIndex].id.split('.').last}')
+                ..headers.set(
+                    'Accept-Ranges', 'bytes'); // setting some response headers
+              String remoteAddress =
+                  httpRequest.connectionInfo.remoteAddress.address;
+              List<String> splitRange =
+                  range.replaceFirst('bytes=', '').split('-');
+              // total # of bytes present in our target file
+              int init = int.parse(splitRange[0],
+                  radix:
+                      10); // initial position requested by client ( it'll always be present in request headers )
+              ReceivePort receivePort =
+                  ReceivePort(); // we'll request performance stat holder Isolate to give us amount of data to be transferred in this response ( in bytes )
+              receivePort.listen(
+                (transferThisMuchData) {
+                  // decision to be taken by considering performance of this client ( & also backend ) in last request
+                  int end = splitRange[1]
+                          .isEmpty // if nothing is requested as max offset by client, we'll simply choose best possible value ( while considering performance in previous request ), until & unless it crosses total size of file
+                      ? (init + transferThisMuchData as int) >=
+                              movies[foundElementIndex].size
+                          ? movies[foundElementIndex].size - 1
+                          : init + transferThisMuchData as int
+                      : int.parse(splitRange[1],
+                          radix:
+                              10); // and if there's something specific in request header, we'll simply send that data, until & unless it crosses 1Mb max threshold of data, can be sent at a time
+                  httpRequest.response
+                    ..headers.set('Content-Range',
+                        'bytes $init-$end/${movies[foundElementIndex].size}')
+                    ..headers.set('Content-Length', end - init + 1);
+                  var stopWatch = Stopwatch()
+                    ..start(); // we're going to calculate how much time we had to spend for completing this transfer ( in milliseconds )
+                  File(movies[foundElementIndex].path)
+                      .openRead(init, end + 1)
+                      .pipe(httpRequest.response)
+                      .then(
+                    (val) async {
+                      await httpRequest.response.close(); // closing connection
+                      stopWatch.stop(); // stopping it
+                      sendPorts[1].send({
+                        remoteAddress: {
+                          'data': end - init + 1,
+                          'time': stopWatch.elapsed.inMilliseconds,
+                        },
+                      }); // feeding performance, which is to be used in next request, for this client
+                      receivePort.close(); // closing not required stream
+                    },
+                    onError: (e) async {
+                      await httpRequest.response.close(); // closing connection
+                      stopWatch.stop();
+                      sendPorts[1].send({
+                        remoteAddress: {
+                          'data': 0,
+                          // something went badly wrong, so next time we'll get back to lowest data transferring value, which is 512KB ( to be set in target Isolate )
+                          'time': stopWatch.elapsed.inMilliseconds,
+                        },
+                      });
+                      receivePort.close(); // closing this stream
+                    },
+                  ); // end+1 as max offset, cause we'll read up to byte index `end` not (end + 1)
+                },
+                onError: (e) async => await httpRequest.response.close(),
+                cancelOnError: true,
+              );
+              sendPorts[0].send([
+                receivePort.sendPort,
+                remoteAddress,
+              ]); // sending query to performance stat holder Isolate, what's the amount of data to be transferred this time, to be returned in response
+            }
           }
       }
     } on Exception {
@@ -240,6 +208,31 @@ _handleOtherRequest(HttpRequest httpRequest) {
 }
 
 /*
+  reads target JSON data holder file, and converts
+  movie names into a list of Movie objects, which is to be returned in Future
+ */
+Future<List<Movie>> getMovies(String targetPath) {
+  var completer = Completer<List<Movie>>();
+  File(targetPath)
+      .openRead()
+      .transform(utf8.decoder)
+      .transform(json.decoder)
+      .listen(
+    (content) {
+      var movies = <Movie>[];
+      Map<String, dynamic>.from(content).forEach(
+        (key, val) =>
+            movies.add(Movie.fromJSON(key, Map<String, dynamic>.from(val))),
+      );
+      completer.complete(movies);
+    },
+    onError: (e) => completer.complete([]),
+    cancelOnError: true,
+  );
+  return completer.future;
+}
+
+/*
   Creates a http server, accessible on provided host & default port 8000, if nothing specific supplied
   
   Server is supposed to entertain only GET request ( as per current situation ),
@@ -253,23 +246,34 @@ _handleOtherRequest(HttpRequest httpRequest) {
 createServer(InternetAddress host, List<SendPort> sendPorts,
         {int port = 8000, String serverName = 'streamZ_v1.0.0'}) =>
     HttpServer.bind(host, port, shared: true).then(
-      (httpServer) {
-        httpServer.serverHeader = serverName;
-        print(
-            '[+]${serverName} listening ( ${Isolate.current.debugName} ) ...\n');
-        httpServer.listen(
-          (httpRequest) {
-            switch (httpRequest.method) {
-              case 'GET':
-                _handleGETRequest(httpRequest, sendPorts);
-                break;
-              default:
-                _handleOtherRequest(httpRequest);
-            }
-          },
-          onError: (e) => print('[!]Failed'),
-          cancelOnError: true,
-        );
-      },
+      (httpServer) => getMovies(
+              path.normalize(path.join(path.current, '../data/playList.json')))
+          .then(
+        (List<Movie> data) {
+          if (data.isEmpty) {
+            Isolate.current.kill(
+              priority: Isolate.immediate,
+            ); // as we don't have any movies, we won't start server, we'll simply kill ourselves
+          } else {
+            List<Movie> movies = data;
+            httpServer.serverHeader = serverName;
+            print(
+                '[+]${serverName} listening ( ${Isolate.current.debugName} ) ...\n');
+            httpServer.listen(
+              (httpRequest) {
+                switch (httpRequest.method) {
+                  case 'GET':
+                    _handleGETRequest(httpRequest, sendPorts, movies);
+                    break;
+                  default:
+                    _handleOtherRequest(httpRequest);
+                }
+              },
+              onError: (e) => print('[!]Failed'),
+              cancelOnError: true,
+            );
+          }
+        },
+      ),
       onError: (e) => print('[!]Failed'),
     );

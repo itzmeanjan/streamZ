@@ -4,11 +4,10 @@ A simple video streaming application made with _Dart_, _JS_, _HTML_, _CSS_ & :he
 Show some :heart: by putting :star:
 
 ## what does it do ?
-- A streaming service, intended to run in small network(s) i.e. LAN
-- Backend is fully written in _Dart_, leveraging power of _dart:io_
-- Frontend is powered by _HTML_, _CSS_ & last but not least _Javascript_
-- Audio-Video playing is done using HTML5 **\<video>** element, which eventually can handle pretty small number of audio and video format(s)
-- Basically we'll be able to stream & play _mp4_ & _webm_ video(s) to devices present in LAN easily
+- A streaming service, intended to run in small network(s) _( may be in your home network )_, which lets you stream movies to any device present in that network & having a standard browser installed _( yeah HTML5 support required )_
+- Backend, fully written in _Dart_, leveraging power of _dart:io_ & _dart:isolate_
+- Frontend, powered by _HTML_, _CSS_ & last but not least _Javascript_ _( yeah not using any UI framework )_
+- Audio-Video playing is done using HTML5 **\<video>** element, which can play _mp4_ & _webm_ video(s) generally
 ## how can I use it ?
 - Simply fork this repo & clone it in you machine
 - Make sure you've installed _Dart SDK_ & you're on _*nix_ platform
@@ -20,9 +19,24 @@ videos, present in _~/Videos/_, are listed in playlist
 $ cd bin # assuming you're already at root of project
 $ dart playlist_builder.dart
 ```
+- You may consider using _AOT_-compiled version, for better performance
+```shell script
+$ dart2aot playlist_builder.dart playlist_builder.dart.aot // compilation
+$ dartaotruntime playlist_builder.dart.aot
+```
 - Start streaming server using, which will be available via port 8000
 ```shell script
 $ dart main.dart
+```
+- Here also, try using _AOT_-compiled version, for better performance
+```shell script
+$ dart2aot main.dart main.dart.aot // compilation
+$ dartaotruntime main.dart.aot
+```
+- If you're having a lot of traffic, consider using multiple Isolates to handle traffic efficiently
+```shell script
+$ dartaotruntime main.dart.aot 2 // using two Isolates
+$ dartaotruntime main.dart.aot 4 // using four Isolates
 ```
 - Now you can simply use this streaming service by opening `http://ip-addr-server:8000/`, on any device's browser present in LAN
 - For using service from same machine, simply use `http://localhost:8000/` from your favourite browser

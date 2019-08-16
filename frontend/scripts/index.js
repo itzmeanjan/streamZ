@@ -4,6 +4,8 @@
 */
 
 window.addEventListener('DOMContentLoaded', (ev) => {
+  // if something goes wrong, we'll let user know that something went
+  // unexpectedly bad
   function handleError(error) {
     let errorDiv = document.createElement('div');
     errorDiv.className = 'childDiv';
@@ -20,18 +22,27 @@ window.addEventListener('DOMContentLoaded', (ev) => {
   }
 
   function setLightsUpForShow(event) {
-    window.navigator.vibrate(200);
+    window.navigator.vibrate(
+        200); // vibrating device ( supported in mobile platforms ), to denote
+    // we're about to start streaming this movie
     let movieName =
-      event.target.className === 'playListText'
-        ? event.target.innerHTML
-        : event.target.className === 'childDiv'
-          ? event.target.childNodes[0].childNodes[0].innerHTML
-          : null;
+        event.target.className === 'playListText'
+            ? event.target.innerHTML
+            : event.target.className === 'childDiv'
+                  ? event.target.childNodes[0].childNodes[0].innerHTML
+                  : null; // extracting movie name, which is to be streamed
     if (movieName === null) {
       return;
     }
+    // we're asking user whether they wanna stream movie or not
+    // on clicking `ok`, it'll start streaming window
+    // else it'll simply start downloading movie
+    // so if you wanna download movie simply click on `cancel` button, when
+    // asked for preference
     if (!confirm("Stream this movie ?")) {
-      window.location = movieName;
+      window.location =
+          movieName; // setting this as URL, will let backend know, we're
+                     // interested in downloading movie
       return;
     }
     while (parentDiv.childElementCount > 0) {
@@ -56,8 +67,7 @@ window.addEventListener('DOMContentLoaded', (ev) => {
       let videoElement = document.getElementById("video");
       if (videoElement.paused) {
         videoElement.play();
-      }
-      else {
+      } else {
         videoElement.pause();
       }
     };
@@ -69,8 +79,9 @@ window.addEventListener('DOMContentLoaded', (ev) => {
     video.preload = "metadata";
     let source = document.createElement("source");
     source.src = movieName;
-    source.type = `video/${movieName.split('.').slice(-1)[0]}`;
-    video.innerHTML = "Something went wrong !!!";
+    source.type = `video/${
+        movieName.split('.').slice(-1)[0]}`; // setting video to streamed's type
+    video.innerHTML = "Something went wrong !!!"; // it's a fallback note
     video.appendChild(source);
     childDiv.appendChild(videoText);
     childDiv.appendChild(video);
@@ -78,9 +89,11 @@ window.addEventListener('DOMContentLoaded', (ev) => {
   }
 
   let parentDiv = document.getElementById('mainDiv');
+  // fetches list of movies, which can be streamed from backend using HTML5
+  // Fetch API and generates UI dynamically
   fetch(new URL('movies', window.location.href)).then((resp) => {
     resp.json().then((data) => {
-      Object.keys(data).sort().forEach((elem) => {
+      data.path.sort().forEach((elem) => {
         let movieDiv = document.createElement('div');
         movieDiv.className = 'childDiv';
         movieDiv.onmouseenter = (ev) => {
@@ -93,7 +106,10 @@ window.addEventListener('DOMContentLoaded', (ev) => {
           let text = ev.target.childNodes[0].childNodes[0];
           text.style.color = 'snow';
         };
-        movieDiv.onclick = setLightsUpForShow;
+        movieDiv.onclick =
+            setLightsUpForShow; // clicking on a movieName will ask user for
+        // his/ her preference,
+        // would he/ she like to stream movie or not
         let movieArticle = document.createElement('article');
         let movieName = document.createElement('p');
         movieName.className = 'playListText';
