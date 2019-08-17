@@ -59,7 +59,7 @@ _handleGETRequest(
             ..write(jsonEncode({
               'path': movies.map((elem) => elem.id).toList(growable: false)
             }));
-          await httpRequest.response.close();
+          await httpRequest.response.close(); // closing connection
           break;
         case '/favicon.ico':
           httpRequest.response
@@ -256,6 +256,14 @@ createServer(InternetAddress host, List<SendPort> sendPorts,
             ); // as we don't have any movies, we won't start server, we'll simply kill ourselves
           } else {
             List<Movie> movies = data;
+            // setting up a periodic timer here, so that list of available movies can be
+            // refreshed every 30 minutes, if & only if timer is active
+            Timer.periodic(Duration(minutes: 30), (timer) async {
+              if (timer.isActive) {
+                movies = await getMovies(path.normalize(
+                    path.join(path.current, '../data/playList.json')));
+              }
+            });
             httpServer.serverHeader = serverName;
             print(
                 '[+]${serverName} listening ( ${Isolate.current.debugName} ) ...\n');
