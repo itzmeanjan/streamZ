@@ -7,7 +7,9 @@ class Movie {
 
   Movie(this.id, this.path, this.size);
 
-  // this method will be helping us in getting an instance of this class from JSON data, which is read from target file, and converted into Map<String, Map<String, dynamic>>
-  static Movie fromJSON(String movieName, Map<String, dynamic> movieData) =>
-      Movie(movieName, movieData['path'], movieData['length'] as int);
+  @override
+  String toString() {
+    super.toString();
+    return '$id ::\n\t$path\n\t$size';
+  }
 }

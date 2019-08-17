@@ -12,23 +12,14 @@ Show some :heart: by putting :star:
 - Simply fork this repo & clone it in you machine
 - Make sure you've installed _Dart SDK_ & you're on _*nix_ platform
 - Because I gonna use _systemd.service_ to keep this streaming service alive in background, always, even after system restarts it'll auto start itself
-- You need to make sure, you've _~/Videos/_ directory present on your system, cause _bin/playlist_builder.dart_ has to read from that directory _( periodically )_, to ensure all _mp4_ & _webm_
-videos, present in _~/Videos/_, are listed in playlist
-- Refresh playList, which is to be shown to clients, depending upon content of ~/Videos/
+- You need to make sure, you've _~/Videos/_ directory present on your system, cause we'll read from that directory _( every 30 minutes )_, to ensure all _mp4_ & _webm_
+videos, present in aforementioned directory, are listed in movie playlist
+- Start streaming server, which will be available via port 8000
 ```shell script
-$ cd bin # assuming you're already at root of project
-$ dart playlist_builder.dart
-```
-- You may consider using _AOT_-compiled version, for better performance
-```shell script
-$ dart2aot playlist_builder.dart playlist_builder.dart.aot // compilation
-$ dartaotruntime playlist_builder.dart.aot
-```
-- Start streaming server using, which will be available via port 8000
-```shell script
+$ cd bin # assuming you're already at root of project directory
 $ dart main.dart
 ```
-- Here also, try using _AOT_-compiled version, for better performance
+- Consider using _Ahead Of Time_-compiled version _( at production )_, for better performance
 ```shell script
 $ dart2aot main.dart main.dart.aot // compilation
 $ dartaotruntime main.dart.aot
@@ -36,11 +27,11 @@ $ dartaotruntime main.dart.aot
 - If you're having a lot of traffic, consider using multiple Isolates to handle traffic efficiently
 ```shell script
 $ dartaotruntime main.dart.aot 2 // using two Isolates
-$ dartaotruntime main.dart.aot 4 // using four Isolates
+$ dartaotruntime main.dart.aot n // using n Isolates, n >= 1
 ```
 - Now you can simply use this streaming service by opening `http://ip-addr-server:8000/`, on any device's browser present in LAN
 - For using service from same machine, simply use `http://localhost:8000/` from your favourite browser
-- Ways to deploy via _systemd.service_, to be explained in a blog post, to be published soon
+- Deploying via _systemd.service_, to be explained in a blog post, to be published soon
 ## how does it look like ?
 ![screenCapture_1](screencaptures/screenCapture_1.png)
 

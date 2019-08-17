@@ -101,6 +101,7 @@ main(List<String> args) {
   if (args.isNotEmpty) {
     try {
       count = int.parse(args[0], radix: 10);
+      count = count < 1 ? 1 : count; // just a safeguard
     } on Exception {
       count = 1;
     }

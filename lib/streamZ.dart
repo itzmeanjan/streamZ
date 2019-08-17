@@ -4,8 +4,10 @@ import 'dart:isolate' show Isolate, SendPort;
 import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'dart:io';
+import 'dart:math' show Random;
 
 import 'package:streamZ/movies.dart';
+import 'package:streamZ/playList.dart';
 
 /*
   Handling a GET request is done here, with the help of switch statements,
@@ -208,31 +210,6 @@ _handleOtherRequest(HttpRequest httpRequest) {
 }
 
 /*
-  reads target JSON data holder file, and converts
-  movie names into a list of Movie objects, which is to be returned in Future
- */
-Future<List<Movie>> getMovies(String targetPath) {
-  var completer = Completer<List<Movie>>();
-  File(targetPath)
-      .openRead()
-      .transform(utf8.decoder)
-      .transform(json.decoder)
-      .listen(
-    (content) {
-      var movies = <Movie>[];
-      Map<String, dynamic>.from(content).forEach(
-        (key, val) =>
-            movies.add(Movie.fromJSON(key, Map<String, dynamic>.from(val))),
-      );
-      completer.complete(movies);
-    },
-    onError: (e) => completer.complete([]),
-    cancelOnError: true,
-  );
-  return completer.future;
-}
-
-/*
   Creates a http server, accessible on provided host & default port 8000, if nothing specific supplied
   
   Server is supposed to entertain only GET request ( as per current situation ),
@@ -246,9 +223,7 @@ Future<List<Movie>> getMovies(String targetPath) {
 createServer(InternetAddress host, List<SendPort> sendPorts,
         {int port = 8000, String serverName = 'streamZ_v1.0.0'}) =>
     HttpServer.bind(host, port, shared: true).then(
-      (httpServer) => getMovies(
-              path.normalize(path.join(path.current, '../data/playList.json')))
-          .then(
+      (httpServer) => build().then(
         (List<Movie> data) {
           if (data.isEmpty) {
             Isolate.current.kill(
@@ -257,11 +232,15 @@ createServer(InternetAddress host, List<SendPort> sendPorts,
           } else {
             List<Movie> movies = data;
             // setting up a periodic timer here, so that list of available movies can be
-            // refreshed every 30 minutes, if & only if timer is active
-            Timer.periodic(Duration(minutes: 30), (timer) async {
+            // refreshed every 30 minutes & some random seconds
+            // ( cause we may be running multiple Isolates), if & only if timer is active
+            Timer.periodic(
+                Duration(
+                    minutes: 30,
+                    seconds: Random(DateTime.now().millisecondsSinceEpoch)
+                        .nextInt(59)), (timer) async {
               if (timer.isActive) {
-                movies = await getMovies(path.normalize(
-                    path.join(path.current, '../data/playList.json')));
+                movies = await build();
               }
             });
             httpServer.serverHeader = serverName;
