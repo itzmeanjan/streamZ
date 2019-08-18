@@ -48,6 +48,37 @@ body{
     margin-right: auto;
 }
 
+#uploadPanel{
+    width: 90%;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1.5vmax;
+    margin-bottom: 3vmax;
+    border-style: dashed;
+    border-color: white;
+    border-radius: 1.6vmax;
+    border-width: 3px;
+    text-align: center;
+    padding-top: .5vmax;
+    padding-bottom: .5vmax;
+}
+
+#uploadPanelText{
+    color: yellow;
+    font-size: 2vmax;
+    font-family: 'Times New Roman', Times, serif;
+    font-style: oblique;
+    display: block;
+    padding: 1vmax;
+    font-weight: bold;
+}
+
+#fileUpload{
+    color: aliceblue;
+    display: none;
+}
+
 .playListText {
     color: snow;
     font-family: Georgia, 'Times New Roman', Times, serif;

@@ -184,6 +184,25 @@ _handleGETRequest(
       );
 }
 
+_handlePUTRequest(HttpRequest httpRequest) {
+  print(
+      '${httpRequest.method}\t${httpRequest.requestedUri.path}\t${httpRequest.connectionInfo.remoteAddress.address}\t${DateTime.now().toString()}\t${Isolate.current.debugName}');
+  httpRequest.listen(
+    (data) => print(data),
+    onError: (e) => print(e),
+    onDone: () async {
+      httpRequest.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode(<String, String>{
+          'status': 'success',
+        }));
+      await httpRequest.response.close();
+    },
+    cancelOnError: true,
+  );
+}
+
 /*
   Here we plan to handle any kind of requests other than GET,
   which are to be simply discarded & to be responded using HttpStatus `methodNotAllowed`
@@ -251,6 +270,9 @@ createServer(InternetAddress host, List<SendPort> sendPorts,
                 switch (httpRequest.method) {
                   case 'GET':
                     _handleGETRequest(httpRequest, sendPorts, movies);
+                    break;
+                  case 'PUT':
+                    _handlePUTRequest(httpRequest);
                     break;
                   default:
                     _handleOtherRequest(httpRequest);
