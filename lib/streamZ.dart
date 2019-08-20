@@ -187,20 +187,45 @@ _handleGETRequest(
 _handlePUTRequest(HttpRequest httpRequest) {
   print(
       '${httpRequest.method}\t${httpRequest.requestedUri.path}\t${httpRequest.connectionInfo.remoteAddress.address}\t${DateTime.now().toString()}\t${Isolate.current.debugName}');
-  httpRequest.listen(
-    (data) => print(data),
-    onError: (e) => print(e),
-    onDone: () async {
-      httpRequest.response
-        ..statusCode = HttpStatus.ok
-        ..headers.contentType = ContentType.json
-        ..write(jsonEncode(<String, String>{
-          'status': 'success',
-        }));
-      await httpRequest.response.close();
-    },
-    cancelOnError: true,
-  );
+  if (httpRequest.headers.value('Content-Type').startsWith('video/')) {
+    var fileName = httpRequest.headers
+        .value('Content-Disposition')
+        .split(';')[1]
+        .replaceFirst('filename=', '')
+        .trimLeft()
+        .replaceAll('"', '');
+    httpRequest
+        .pipe(File(path.join(Platform.environment['HOME'], 'Videos', fileName))
+            .openWrite(
+      mode: FileMode.write,
+    ))
+        .then(
+      (val) async {
+        httpRequest.response
+          ..statusCode = HttpStatus.created
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode(<String, String>{
+            'status': 'success',
+          }));
+        await httpRequest.response.close();
+        await build();
+      },
+      onError: (e) async {
+        await httpRequest.response.close();
+        await File(path.join(Platform.environment['HOME'], 'Videos', fileName))
+            .delete(); // upload was incomplete due to some unexpected reasons
+        // so removing file
+      },
+    );
+  } else {
+    httpRequest.drain().then(
+      (val) async {
+        httpRequest.response.statusCode = HttpStatus.expectationFailed;
+        await httpRequest.response.close();
+      },
+      onError: (e) async => await httpRequest.response.close(),
+    );
+  }
 }
 
 /*

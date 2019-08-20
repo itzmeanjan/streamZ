@@ -79,6 +79,19 @@ body{
     display: none;
 }
 
+#uploadConfirmationButton, #cancelUpload{
+    color: white;
+    background-color: mediumseagreen;
+    width: 20%;
+    outline: none;
+    border-radius: 2vmax;
+    border-width: 0px;
+    padding-top: 1vmax;
+    padding-bottom: 1vmax;
+    margin-top: .4vmax;
+    margin-bottom: .4vmax;
+}
+
 .playListText {
     color: snow;
     font-family: Georgia, 'Times New Roman', Times, serif;
