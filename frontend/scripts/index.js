@@ -25,104 +25,112 @@ window.addEventListener('DOMContentLoaded', (ev) => {
   function fileUploadHandler(event) {
     let fileUploader = document.getElementById('fileUpload');
     let fileSelected = fileUploader.files[0];
-    document.getElementById('uploadPanelText').innerHTML =
-      `Upload <small>${fileSelected.name}</small> ?`;
-    let button = document.getElementById('uploadConfirmationButton');
-    if (button === undefined || button === null) {
-      button = document.createElement('button');
-      button.id = 'uploadConfirmationButton';
-      button.innerHTML = 'Ok';
-      button.onmouseenter = (ev) => button.style.backgroundColor = 'green';
-      button.onmouseleave = (ev) => button.style.backgroundColor =
-        'mediumseagreen';
+    if (fileSelected.type.startsWith('video', 0)) {
+      document.getElementById('uploadPanelText').innerHTML =
+          `Upload <small>${fileSelected.name}</small> ?`;
+      let button = document.getElementById('uploadConfirmationButton');
+      if (button === undefined || button === null) {
+        button = document.createElement('button');
+        button.id = 'uploadConfirmationButton';
+        button.innerHTML = 'Ok';
+        button.onmouseenter = (ev) => button.style.backgroundColor = 'green';
+        button.onmouseleave = (ev) => button.style.backgroundColor =
+            'mediumseagreen';
+      }
+      button.onclick = (ev) => {
+        const abortController =
+            new AbortController(); // lets us to abort this upload
+        // operation
+        let intervalId = displayProgressBar(abortController, fileSelected.name);
+        fetch(new URL('upload', window.location.href), {
+          method : 'PUT',
+          body : fileSelected,
+          signal : abortController.signal, // for aborting upload
+          headers : new Headers({
+            'Content-Disposition' :
+                `attachment; filename="${fileSelected.name}"`
+          })
+        })
+            .then((response) => response.json())
+            .then((response) => removeProgressBar(intervalId, null),
+                  (e) => removeProgressBar(intervalId, e));
+      };
+      uploadPanel.appendChild(button);
     }
-    button.onclick = (ev) => {
-      const abortController =
-        new AbortController(); // lets us to abort this upload
-      // operation
-      let intervalId = displayProgressBar(abortController, fileSelected.name);
-      fetch(new URL('upload', window.location.href), {
-        method: 'PUT',
-        body: fileSelected,
-        signal: abortController.signal, // for aborting upload
-        headers: new Headers(
-          {
-            'Content-Disposition': `attachment; filename="${fileSelected.name}"`
-          }
-        )
-      })
-        .then((response) => response.json())
-        .then((response) => removeProgressBar(intervalId, null),
-          (e) => removeProgressBar(intervalId, e));
-    };
-    uploadPanel.appendChild(button);
-    /*if (fileSelected.type.startsWith('video', 0)) {
-    
-    }*/
   }
 
   function displayProgressBar(abortController, filename) {
     let progressBar = document.createElement('progress');
     progressBar.id = 'progressBar';
-    progressBar.max = 100;
-    progressBar.value = 5;
+    progressBar.max = 1;
+    progressBar.value = .05;
     progressBar.style.width = '85%';
-    let intervalId = setInterval(
-      () => { progressBar.value = progressBar.value % 100 + 5; }, 1000);
-    document.getElementById('uploadPanelText').innerHTML = `Uploading ${filename}`;
+    let intervalId = setInterval(() => {
+      progressBar.value = progressBar.value % 1 + .05;
+      progressBar.innerHTML = `${progressBar.value * 100} %`;
+    }, 1000);
+    document.getElementById('uploadPanelText').innerHTML =
+        `Uploading ${filename}`;
     document.getElementById('uploadPanel')
-      .replaceChild(progressBar, document.getElementById('fileUpload'));
+        .replaceChild(progressBar, document.getElementById('fileUpload'));
     let cancelButton = document.createElement('button');
     cancelButton.id = 'cancelUpload';
     cancelButton.innerHTML = 'Cancel';
     cancelButton.style.backgroundColor = 'tomato';
     cancelButton.onmouseenter = (ev) => cancelButton.style.backgroundColor =
-      'red';
+        'red';
     cancelButton.onmouseleave = (ev) => cancelButton.style.backgroundColor =
-      'tomato';
-    cancelButton.onclick = (ev) => {
-      abortController.abort();
-    };
+        'tomato';
+    cancelButton.onclick = (ev) => { abortController.abort(); };
     document.getElementById('uploadPanel')
-      .replaceChild(cancelButton,
-        document.getElementById('uploadConfirmationButton'));
+        .replaceChild(cancelButton,
+                      document.getElementById('uploadConfirmationButton'));
     document.getElementById('heading').style.display = 'none';
     document.getElementById('mainDiv').style.display = 'none';
     document.getElementById('uploadPanel')
-      .blur(); // removing focus from this element
+        .dispatchEvent(
+            new MouseEvent('mouseleave')); // creating this synthetic event
+    // so that color gets changed
     return intervalId;
   }
 
   function removeProgressBar(intervalId, error) {
     clearInterval(intervalId);
-    document.getElementById('cancelUpload').parentElement.removeChild(document.getElementById('cancelUpload')); // removing upload cancel button
-    document.getElementById('uploadPanelText').innerHTML = error === null ? 'Completed !!!' : 'Failed to upload'; // display error, if something went wrong during uploading movie
+    document.getElementById('cancelUpload')
+        .parentElement.removeChild(document.getElementById(
+            'cancelUpload')); // removing upload cancel button
+    document.getElementById('uploadPanelText').innerHTML =
+        error === null ? 'Completed !!!'
+                       : 'Failed to upload'; // display error, if something went
+                                             // wrong during uploading movie
     setTimeout(() => {
-      document.getElementById('uploadPanelText').innerHTML = 'Upload a movie ...';
+      document.getElementById('uploadPanelText').innerHTML =
+          'Upload a movie ...';
       let fileUpload = document.createElement('input');
       fileUpload.type = 'file';
       fileUpload.id = 'fileUpload';
       fileUpload.accept = 'video/mp4, video/webm';
       fileUpload.onchange = fileUploadHandler;
       document.getElementById('uploadPanel')
-        .replaceChild(fileUpload, document.getElementById('progressBar'));
+          .replaceChild(fileUpload, document.getElementById('progressBar'));
       document.getElementById('heading').style.display = 'block';
       document.getElementById('mainDiv').style.display = 'block';
       document.getElementById('uploadPanel')
-        .blur(); // removing focus from this element
-    }, 2000); // setting up a delay of 2 sec. so that user can see final status of trasfer
+          .blur(); // removing focus from this element
+    }, 2000); // setting up a delay of 2 sec. so that user can see final status
+              // of trasfer
   }
 
   function setLightsUpForShow(event) {
     window.navigator.vibrate(
-      200); // vibrating device ( supported in mobile platforms ), to denote
+        200); // vibrating device ( supported in mobile platforms ), to denote
     // we're about to start streaming this movie
     let movieName =
-      event.target.className === 'playListText'
-        ? event.target.innerHTML
-        : event.target.className === 'childDiv'
-          ? event.target.childNodes[0].childNodes[0].innerHTML
-          : null; // extracting movie name, which is to be streamed
+        event.target.className === 'playListText'
+            ? event.target.innerHTML
+            : event.target.className === 'childDiv'
+                  ? event.target.childNodes[0].childNodes[0].innerHTML
+                  : null; // extracting movie name, which is to be streamed
     if (movieName === null) {
       return;
     }
@@ -133,7 +141,7 @@ window.addEventListener('DOMContentLoaded', (ev) => {
     // asked for preference
     if (!confirm("Stream this movie ?")) {
       window.location =
-        movieName; // setting this as URL, will let backend know, we're
+          movieName; // setting this as URL, will let backend know, we're
       // interested in downloading movie
       return;
     }
@@ -141,7 +149,7 @@ window.addEventListener('DOMContentLoaded', (ev) => {
       parentDiv.removeChild(document.getElementById('mainDiv').firstChild);
     }
     document.getElementById('uploadPanel')
-      .parentNode.removeChild(document.getElementById('uploadPanel'));
+        .parentNode.removeChild(document.getElementById('uploadPanel'));
     let childDiv = document.createElement('div');
     childDiv.className = 'childDiv';
     childDiv.style.backgroundColor = '#363636';
@@ -174,7 +182,7 @@ window.addEventListener('DOMContentLoaded', (ev) => {
     let source = document.createElement("source");
     source.src = movieName;
     source.type = `video/${
-      movieName.split('.').slice(-1)[0]}`; // setting video to streamed's type
+        movieName.split('.').slice(-1)[0]}`; // setting video to streamed's type
     video.innerHTML = "Something went wrong !!!"; // it's a fallback note
     video.appendChild(source);
     childDiv.appendChild(videoText);
@@ -214,7 +222,7 @@ window.addEventListener('DOMContentLoaded', (ev) => {
           text.style.color = 'snow';
         };
         movieDiv.onclick =
-          setLightsUpForShow; // clicking on a movieName will ask user for
+            setLightsUpForShow; // clicking on a movieName will ask user for
         // his/ her preference,
         // would he/ she like to stream movie or not
         let movieArticle = document.createElement('article');
