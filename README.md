@@ -3,6 +3,8 @@ A simple video streaming application made with _Dart_, _JS_, _HTML_, _CSS_ & :he
 
 Show some :heart: by putting :star:
 
+_Recently I wrote an article, explaining how to deploy it using systemd in LAN, which can be found [here](http://itzmeanjan.in/blog/post_1)._
+
 ## what does it do ?
 - A streaming service, intended to run in small network(s) _( may be in your home network )_, which lets you stream movies to any device present in that network & having a standard browser installed _( yeah HTML5 support required )_
 - Backend, fully written in _Dart_, leveraging power of _dart:io_ & _dart:isolate_
