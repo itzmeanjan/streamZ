@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 import 'dart:math' show Random;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:streamZ/movies.dart';
 import 'package:streamZ/playList.dart';
@@ -194,11 +195,11 @@ _handlePUTRequest(HttpRequest httpRequest) {
         .replaceFirst('filename=', '')
         .trimLeft()
         .replaceAll('"', '');
-    httpRequest
-        .pipe(File(path.join(Platform.environment['HOME'], 'Videos', fileName))
-            .openWrite(
-      mode: FileMode.write,
-    ))
+    File(path.join(Platform.environment['HOME'], 'Videos', fileName))
+        .openWrite(
+          mode: FileMode.write,
+        )
+        .addStream(httpRequest)
         .then(
       (val) async {
         httpRequest.response
