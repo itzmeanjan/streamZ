@@ -12,9 +12,10 @@ _Recently I wrote an article, explaining how to deploy it using systemd in LAN, 
 - Audio-Video playing is done using HTML5 **\<video>** element, which can play _mp4_ & _webm_ video(s) generally
 ## how can I use it ?
 - If you're on _Linux_, then I've already compiled **streamZ** into an executable binary _( using dart2native compiler )_, which can be simply run on any Linux Machine, cause that executable binary is one self-sufficient one _( but not yet platform-agnostic, which will change is near future )_.
-- Then download [_this_](.) compressed file, and unzip it into a suitable location on your machine.
+- Then download [_this_](https://github.com/itzmeanjan/streamZ/releases/download/v1.0.1/streamZ.zip) compressed file, and unzip it into a suitable location on your machine.
 - You'll get a directory tree like below
 ```shell script
+$ wget https://github.com/itzmeanjan/streamZ/releases/download/v1.0.1/streamZ.zip # consider downloading zip, using wget from terminal
 $ cd
 $ unzip streamZ.zip # unzipping it
 $ cd streamZ # getting into actual directory
