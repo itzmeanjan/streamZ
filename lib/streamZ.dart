@@ -5,7 +5,6 @@ import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 import 'dart:math' show Random;
-import 'dart:typed_data' show Uint8List;
 
 import 'package:streamZ/movies.dart';
 import 'package:streamZ/playList.dart';

@@ -1,6 +1,6 @@
 import 'dart:io' show InternetAddress;
 import 'dart:isolate' show Isolate, ReceivePort, SendPort;
-import 'package:streamZ/streamZ.dart' as streamZ;
+import 'package:streamZ/streamZ.dart' as streamz;
 import 'package:streamZ/performance.dart';
 
 /*
@@ -19,7 +19,7 @@ spawnHandler(SendPort sendPort) {
       receivePort.close(); // no more required, so closing it
     },
     cancelOnError: true,
-    onDone: () => streamZ.createServer(InternetAddress.anyIPv4, sendPorts),
+    onDone: () => streamz.createServer(InternetAddress.anyIPv4, sendPorts),
   );
   sendPort.send(receivePort.sendPort);
 }
@@ -97,15 +97,7 @@ requestHandlingStatisticsMaintainer(SendPort sendPort) {
   each of them running in a different Isolate
 */
 main(List<String> args) {
-  int count = 1;
-  if (args.isNotEmpty) {
-    try {
-      count = int.parse(args[0], radix: 10);
-      count = count < 1 ? 1 : count; // just a safeguard
-    } on Exception {
-      count = 1;
-    }
-  }
+  int count = 2;
   SendPort sendPortToGetPerformance;
   SendPort sendPortToSetPerformance;
   ReceivePort performanceInfoHolderReceivePort = ReceivePort();
